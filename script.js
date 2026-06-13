@@ -1,17 +1,48 @@
 /* ==========================================================================
-   DENTAL WEBSITE INTERACTIVE SCRIPT
+   DENTAL WEBSITE INTERACTIVE SCRIPT - OPTIMIZED FOR MOBILE
    SmileArc Dental Studio — Dr. Aryan Mehta
+   Mobile-First Performance Improvements
    ========================================================================== */
+
+// UTILITY: Throttle function to reduce scroll event calls
+const throttle = (func, limit) => {
+  let inThrottle;
+  return function(...args) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+};
+
+// UTILITY: Debounce function for immediate response
+const debounce = (func, delay) => {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), delay);
+  };
+};
+
+// UTILITY: Check if device is mobile
+const isMobileDevice = () => {
+  return window.matchMedia('(max-width: 768px)').matches;
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   
-  // 1. STICKY NAVIGATION SCROLL STATE & ACTIVE LINK TRIGGER
+  // 1. STICKY NAVIGATION SCROLL STATE & ACTIVE LINK TRIGGER (OPTIMIZED)
   const mainHeader = document.getElementById('mainHeader');
   const navLinks = document.querySelectorAll('.nav-link');
   const sections = document.querySelectorAll('section');
+  
+  // Cache for scroll position
+  let lastScrollY = 0;
 
   const handleHeaderScroll = () => {
-    if (window.scrollY > 80) {
+    lastScrollY = window.scrollY;
+    if (lastScrollY > 80) {
       mainHeader.classList.add('scrolled');
     } else {
       mainHeader.classList.remove('scrolled');
@@ -19,9 +50,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const highlightNavLink = () => {
-    let scrollPos = window.scrollY + 120; // offset for sticky nav
+    let scrollPos = lastScrollY + 120;
+    let found = false;
     
     sections.forEach(section => {
+      if (found) return; // Stop checking once we find current section
+      
       const sectionId = section.getAttribute('id');
       if (!sectionId) return;
 
@@ -35,11 +69,11 @@ document.addEventListener('DOMContentLoaded', () => {
             link.classList.add('active');
           }
         });
+        found = true;
       }
     });
 
-    // Special case for top of the page
-    if (window.scrollY < 80) {
+    if (lastScrollY < 80) {
       navLinks.forEach(link => {
         link.classList.remove('active');
         if (link.getAttribute('href') === '#') {
@@ -49,63 +83,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  window.addEventListener('scroll', () => {
+  // Throttle scroll event (reduce from continuous to every 100ms)
+  const throttledScroll = throttle(() => {
     handleHeaderScroll();
     highlightNavLink();
-  });
-  // Trigger on load once
+  }, 100);
+
+  window.addEventListener('scroll', throttledScroll, { passive: true });
+  
   handleHeaderScroll();
   highlightNavLink();
 
-  // 2. MOBILE DRAWER NAVIGATION MENU
+  // 2. MOBILE DRAWER NAVIGATION MENU (OPTIMIZED)
   const mobileMenuToggle = document.getElementById('mobileMenuToggle');
   const mobileDrawer = document.getElementById('mobileDrawer');
   const drawerLinks = document.querySelectorAll('.drawer-link');
+  let isDrawerOpen = false;
 
   const toggleMobileMenu = () => {
-    const isOpen = mobileDrawer.classList.contains('open');
+    isDrawerOpen = !isDrawerOpen;
     mobileMenuToggle.classList.toggle('active');
     mobileDrawer.classList.toggle('open');
-    mobileDrawer.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
-    mobileMenuToggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-    document.body.style.overflow = isOpen ? '' : 'hidden'; // Lock body scroll when drawer open
+    mobileDrawer.setAttribute('aria-hidden', isDrawerOpen ? 'false' : 'true');
+    mobileMenuToggle.setAttribute('aria-expanded', isDrawerOpen);
+    document.body.style.overflow = isDrawerOpen ? 'hidden' : '';
+    
+    // Prevent body scroll on mobile when drawer is open
+    if (isDrawerOpen && isMobileDevice()) {
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
   };
 
-  mobileMenuToggle.addEventListener('click', toggleMobileMenu);
+  mobileMenuToggle?.addEventListener('click', toggleMobileMenu);
 
-  // Close drawer when a mobile nav link is clicked
   drawerLinks.forEach(link => {
     link.addEventListener('click', () => {
-      if (mobileDrawer.classList.contains('open')) {
+      if (isDrawerOpen) {
         toggleMobileMenu();
       }
     });
   });
 
-  // 3. HERO HERO COLUMN SCROLL PARALLAX
+  // 3. HERO PARALLAX (MOBILE OPTIMIZED - DISABLED ON MOBILE)
   const heroImg = document.querySelector('.hero-img');
+  let parallelAnimationId;
   
   if (heroImg && window.matchMedia('(min-width: 769px)').matches) {
-    window.addEventListener('scroll', () => {
-      // Check if reduced motion is preferred
+    const updateParallax = throttle(() => {
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
       const scrollPos = window.scrollY;
-      // Parallax translateY factor of 0.3
       const yOffset = scrollPos * 0.3;
-      // Slight scale to prevent edge revealing
       heroImg.style.transform = `translateY(${yOffset}px) scale(1.02)`;
-    });
+    }, 50);
+
+    window.addEventListener('scroll', updateParallax, { passive: true });
   }
 
-  // Smooth scroll for See Transformations and Scroll Chevron
+  // 4. SMOOTH SCROLL HANDLERS
   const heroSecBtn = document.getElementById('heroSecBtn');
   const heroScrollBtn = document.querySelector('.hero-scroll-btn');
 
   const smoothScrollToSection = (targetId) => {
     const targetElement = document.querySelector(targetId);
     if (targetElement) {
-      const targetPos = targetElement.offsetTop - 70; // Header offset
+      const offset = isMobileDevice() ? 40 : 70;
+      const targetPos = targetElement.offsetTop - offset;
       window.scrollTo({
         top: targetPos,
         behavior: 'smooth'
@@ -113,31 +160,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  if (heroSecBtn) {
-    heroSecBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      smoothScrollToSection('#gallery');
-    });
-  }
+  heroSecBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    smoothScrollToSection('#gallery');
+  });
 
-  if (heroScrollBtn) {
-    heroScrollBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      smoothScrollToSection('#stats');
-    });
-  }
+  heroScrollBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    smoothScrollToSection('#stats');
+  });
 
-  // 4. TRUST STATISTICS BAR COUNT-UP ANIMATION
+  // 5. TRUST STATISTICS BAR COUNT-UP ANIMATION (OPTIMIZED)
   const statCards = document.querySelectorAll('.stat-card');
-  
-  // easeOutQuad animation function
   const easeOutQuad = (t) => t * (2 - t);
 
   const startCounter = (card) => {
     const counterSpan = card.querySelector('.counter');
+    if (!counterSpan) return;
+    
     const targetVal = parseFloat(card.getAttribute('data-stat-target'));
     const isDecimal = card.getAttribute('data-stat-decimal') === 'true';
-    const duration = targetVal > 100 ? 2000 : targetVal > 20 ? 1500 : 1000;
+    
+    // Reduce animation duration on mobile
+    const baseDuration = isMobileDevice() ? 800 : 1200;
+    const duration = targetVal > 100 ? baseDuration * 1.5 : targetVal > 20 ? baseDuration : baseDuration * 0.8;
     
     let startTime = null;
 
@@ -145,44 +191,37 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!startTime) startTime = timestamp;
       const progress = timestamp - startTime;
       const fraction = Math.min(progress / duration, 1);
-      
       const currentVal = targetVal * easeOutQuad(fraction);
       
-      if (isDecimal) {
-        counterSpan.textContent = currentVal.toFixed(1);
-      } else {
-        counterSpan.textContent = Math.floor(currentVal).toLocaleString();
-      }
+      counterSpan.textContent = isDecimal 
+        ? currentVal.toFixed(1) 
+        : Math.floor(currentVal).toLocaleString();
 
       if (fraction < 1) {
         requestAnimationFrame(animateCount);
       } else {
-        // Force exact end value
-        if (isDecimal) {
-          counterSpan.textContent = targetVal.toFixed(1);
-        } else {
-          counterSpan.textContent = targetVal.toLocaleString();
-        }
+        counterSpan.textContent = isDecimal 
+          ? targetVal.toFixed(1) 
+          : targetVal.toLocaleString();
       }
     };
 
     requestAnimationFrame(animateCount);
   };
 
-  // Observe statistics grid for scroll in view
   const statsObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        // If reduced motion is preferred, just show numbers instantly
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
           statCards.forEach(card => {
             const targetVal = card.getAttribute('data-stat-target');
-            card.querySelector('.counter').textContent = targetVal;
+            const counterSpan = card.querySelector('.counter');
+            if (counterSpan) counterSpan.textContent = targetVal;
           });
         } else {
           statCards.forEach(card => startCounter(card));
         }
-        observer.unobserve(entry.target); // Trigger only once
+        observer.unobserve(entry.target);
       }
     });
   }, { threshold: 0.2 });
@@ -192,12 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
     statsObserver.observe(statsSection);
   }
 
-  // 5. SERVICES 3D TILT CARDS
+  // 6. SERVICES 3D TILT CARDS (DESKTOP ONLY)
   const serviceCards = document.querySelectorAll('.service-card');
 
   if (window.matchMedia('(min-width: 1025px)').matches) {
     serviceCards.forEach(card => {
       const cardInner = card.querySelector('.card-inner');
+      if (!cardInner) return;
       
       card.addEventListener('mousemove', (e) => {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -208,26 +248,36 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const cardWidth = rect.width;
         const cardHeight = rect.height;
-        
         const cardCenterX = cardWidth / 2;
         const cardCenterY = cardHeight / 2;
         
-        // Max tilt of 12 degrees
         const rotateY = ((mouseX - cardCenterX) / cardWidth) * 12;
         const rotateX = -((mouseY - cardCenterY) / cardHeight) * 12;
         
-        cardInner.style.transition = 'transform 0.1s ease'; // Fast response during movement
+        cardInner.style.transition = 'transform 0.1s ease';
         cardInner.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
       });
 
       card.addEventListener('mouseleave', () => {
-        cardInner.style.transition = 'transform 0.5s ease'; // Smooth slow reset
+        cardInner.style.transition = 'transform 0.5s ease';
         cardInner.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg)';
+      });
+    });
+  } else {
+    // Mobile: disable tilt, just add subtle shadow on touch
+    serviceCards.forEach(card => {
+      card.addEventListener('touchstart', () => {
+        card.style.transform = 'translateY(-4px)';
+        card.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+      });
+      card.addEventListener('touchend', () => {
+        card.style.transform = '';
+        card.style.boxShadow = '';
       });
     });
   }
 
-  // 6. BEFORE/AFTER SLIDER COMPARISON WIDGETS
+  // 7. BEFORE/AFTER SLIDER COMPARISON WIDGETS (MOBILE OPTIMIZED)
   const comparisonSliders = document.querySelectorAll('.comparison-slider');
 
   comparisonSliders.forEach(slider => {
@@ -237,13 +287,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const rect = slider.getBoundingClientRect();
       const relativeX = clientX - rect.left;
       let percentage = (relativeX / rect.width) * 100;
-      
-      // Clamp values between 5% and 95%
       percentage = Math.max(5, Math.min(95, percentage));
       
       slider.style.setProperty('--slider-pct', `${percentage}%`);
       
-      // Accessibility update aria-valuenow
       const handle = slider.querySelector('.slider-handle');
       if (handle) {
         handle.setAttribute('aria-valuenow', Math.round(percentage));
@@ -258,44 +305,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      updateSliderPosition(e.clientX);
-    });
+      if (isDragging) updateSliderPosition(e.clientX);
+    }, { passive: true });
 
     window.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false;
-        slider.classList.remove('dragging');
-      }
+      isDragging = false;
+      slider.classList.remove('dragging');
     });
 
-    // Touch events for mobile screens
+    // Touch events with better mobile support
     slider.addEventListener('touchstart', (e) => {
       isDragging = true;
       slider.classList.add('dragging');
       updateSliderPosition(e.touches[0].clientX);
-    });
+    }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-      if (!isDragging) return;
-      updateSliderPosition(e.touches[0].clientX);
-    });
+      if (isDragging && e.touches[0]) {
+        updateSliderPosition(e.touches[0].clientX);
+      }
+    }, { passive: true });
 
     window.addEventListener('touchend', () => {
-      if (isDragging) {
-        isDragging = false;
-        slider.classList.remove('dragging');
-      }
+      isDragging = false;
+      slider.classList.remove('dragging');
     });
   });
 
-  // 7. APPOINTMENT FORM APIS AND FLOATING LABELS VALIDATION
+  // 8. APPOINTMENT FORM VALIDATION (OPTIMIZED)
   const appointmentForm = document.getElementById('appointmentForm');
+  if (!appointmentForm) return; // Exit if form doesn't exist
+  
   const successCard = document.getElementById('successCard');
   const formContainer = document.getElementById('formContainer');
   const preferredDateInput = document.getElementById('preferredDate');
 
-  // Set min date constraint for Preferred Date to today
   if (preferredDateInput) {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -304,29 +348,23 @@ document.addEventListener('DOMContentLoaded', () => {
     preferredDateInput.min = `${yyyy}-${mm}-${dd}`;
   }
 
-  // Live validator checks input focus out
   const validateField = (inputElement) => {
     const wrapper = inputElement.closest('.input-wrapper');
     if (!wrapper) return true;
 
     let isValid = true;
     
-    // Required check
-    if (inputElement.hasAttribute('required')) {
-      if (!inputElement.value.trim()) {
-        isValid = false;
-      }
+    if (inputElement.hasAttribute('required') && !inputElement.value.trim()) {
+      isValid = false;
     }
 
-    // Phone 10 digits check
     if (isValid && inputElement.id === 'phoneNumber') {
-      const phoneVal = inputElement.value.replace(/\D/g, ''); // strip formats
+      const phoneVal = inputElement.value.replace(/\D/g, '');
       if (phoneVal.length !== 10) {
         isValid = false;
       }
     }
 
-    // Email regex validation
     if (isValid && inputElement.id === 'emailAddress' && inputElement.value.trim() !== '') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(inputElement.value.trim())) {
@@ -334,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Date today or future check
     if (isValid && inputElement.id === 'preferredDate') {
       const selectedDate = new Date(inputElement.value);
       selectedDate.setHours(0,0,0,0);
@@ -345,87 +382,75 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (!isValid) {
-      wrapper.classList.add('invalid');
-    } else {
-      wrapper.classList.remove('invalid');
-    }
-
+    wrapper.classList.toggle('invalid', !isValid);
     return isValid;
   };
 
   const inputs = appointmentForm.querySelectorAll('input, select, textarea');
+  
   inputs.forEach(input => {
-    input.addEventListener('blur', () => {
-      validateField(input);
-    });
-
+    input.addEventListener('blur', () => validateField(input));
     input.addEventListener('input', () => {
-      // Remove invalid class instantly if they start correcting details
       const wrapper = input.closest('.input-wrapper');
-      if (wrapper && wrapper.classList.contains('invalid')) {
+      if (wrapper?.classList.contains('invalid')) {
         validateField(input);
       }
     });
   });
 
-  // Handle Form submit
   appointmentForm.addEventListener('submit', (e) => {
     e.preventDefault();
     
     let isFormValid = true;
     inputs.forEach(input => {
-      const isFieldValid = validateField(input);
-      if (!isFieldValid) {
+      if (!validateField(input)) {
         isFormValid = false;
       }
     });
 
-    if (isFormValid) {
-      // Collect values for calendar add option
-      const clientName = document.getElementById('fullName').value;
-      const clientService = document.getElementById('serviceSelect').options[document.getElementById('serviceSelect').selectedIndex].text;
-      const clientDateStr = document.getElementById('preferredDate').value;
+    if (isFormValid && formContainer && successCard) {
+      const clientName = document.getElementById('fullName')?.value || '';
+      const clientService = document.getElementById('serviceSelect')?.options[document.getElementById('serviceSelect').selectedIndex]?.text || '';
+      const clientDateStr = document.getElementById('preferredDate')?.value || '';
       
-      // Transite layouts to success
       formContainer.style.display = 'none';
       successCard.style.display = 'flex';
 
-      // Setup Add to Calendar handler
       const calendarBtn = document.getElementById('calendarBtn');
-      calendarBtn.addEventListener('click', () => {
-        const title = encodeURIComponent(`SmileArc Dental Studio Appointment - ${clientService}`);
-        const details = encodeURIComponent(`Free Dental Consultation for ${clientName} with Dr. Aryan Mehta.`);
-        const locationStr = encodeURIComponent("123 Civil Lines, Bhopal MP 462001");
-        
-        // Convert YYYY-MM-DD to YYYYMMDD
-        const formattedDate = clientDateStr.replace(/-/g, '');
-        const dateSpan = `${formattedDate}T100000Z/${formattedDate}T110000Z`; // Default 10 AM to 11 AM UTC
+      if (calendarBtn) {
+        calendarBtn.addEventListener('click', () => {
+          const title = encodeURIComponent(`SmileArc Dental Studio Appointment - ${clientService}`);
+          const details = encodeURIComponent(`Free Dental Consultation for ${clientName} with Dr. Aryan Mehta.`);
+          const locationStr = encodeURIComponent("123 Civil Lines, Bhopal MP 462001");
+          const formattedDate = clientDateStr.replace(/-/g, '');
+          const dateSpan = `${formattedDate}T100000Z/${formattedDate}T110000Z`;
 
-        const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&location=${locationStr}&dates=${dateSpan}`;
-        window.open(gCalUrl, '_blank');
-      });
+          const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&location=${locationStr}&dates=${dateSpan}`;
+          window.open(gCalUrl, '_blank');
+        });
+      }
     }
   });
 
-  // 8. FAQ ACCORDION ACTIONS
+  // 9. FAQ ACCORDION ACTIONS
   const faqHeaders = document.querySelectorAll('.faq-header');
 
   faqHeaders.forEach(header => {
     header.addEventListener('click', () => {
       const faqItem = header.closest('.faq-item');
-      const faqContent = faqItem.querySelector('.faq-content');
+      const faqContent = faqItem?.querySelector('.faq-content');
+      if (!faqContent) return;
+      
       const isExpanded = header.getAttribute('aria-expanded') === 'true';
 
-      // Accordion mode: close other items first
       faqHeaders.forEach(otherHeader => {
         if (otherHeader !== header) {
           otherHeader.setAttribute('aria-expanded', 'false');
-          otherHeader.closest('.faq-item').querySelector('.faq-content').style.maxHeight = null;
+          const otherContent = otherHeader.closest('.faq-item')?.querySelector('.faq-content');
+          if (otherContent) otherContent.style.maxHeight = null;
         }
       });
 
-      // Toggle current item
       if (isExpanded) {
         header.setAttribute('aria-expanded', 'false');
         faqContent.style.maxHeight = null;
@@ -436,15 +461,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 9. LIVE INDIAN STANDARD TIME OPEN HOURS STATUS
+  // 10. LIVE INDIAN STANDARD TIME OPEN HOURS STATUS
   const updateLiveHoursStatus = () => {
     const liveStatusText = document.getElementById('liveStatusText');
     const liveStatusContainer = document.getElementById('liveStatusContainer');
     if (!liveStatusText || !liveStatusContainer) return;
 
     const statusDot = liveStatusContainer.querySelector('.status-dot');
+    if (!statusDot) return;
 
-    // Fetch Date and Time in Indian Standard Time (IST - Asia/Kolkata)
     const options = { timeZone: 'Asia/Kolkata', hour12: false };
     const formatter = new Intl.DateTimeFormat('en-US', {
       ...options,
@@ -465,13 +490,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const currentMinuteOfDay = hour * 60 + minute;
-
     let isOpen = false;
     let nextOpenMsg = '';
 
     if (weekday === 'Sunday') {
-      const openStart = 10 * 60; // 10:00 AM
-      const openEnd = 15 * 60;   // 3:00 PM
+      const openStart = 10 * 60;
+      const openEnd = 15 * 60;
       if (currentMinuteOfDay >= openStart && currentMinuteOfDay < openEnd) {
         isOpen = true;
       } else if (currentMinuteOfDay < openStart) {
@@ -480,63 +504,49 @@ document.addEventListener('DOMContentLoaded', () => {
         nextOpenMsg = 'Opens tomorrow at 9:00 AM';
       }
     } else {
-      // Monday - Saturday
-      const openStart = 9 * 60;  // 9:00 AM
-      const openEnd = 20 * 60;   // 8:00 PM
+      const openStart = 9 * 60;
+      const openEnd = 20 * 60;
       if (currentMinuteOfDay >= openStart && currentMinuteOfDay < openEnd) {
         isOpen = true;
       } else if (currentMinuteOfDay < openStart) {
         nextOpenMsg = 'Opens at 9:00 AM today';
       } else {
-        // After 8:00 PM
-        if (weekday === 'Saturday') {
-          nextOpenMsg = 'Opens tomorrow at 10:00 AM';
-        } else {
-          nextOpenMsg = 'Opens tomorrow at 9:00 AM';
-        }
+        nextOpenMsg = weekday === 'Saturday' ? 'Opens tomorrow at 10:00 AM' : 'Opens tomorrow at 9:00 AM';
       }
     }
 
-    if (isOpen) {
-      statusDot.classList.remove('closed');
-      liveStatusText.textContent = 'Open Now';
-    } else {
-      statusDot.classList.add('closed');
-      liveStatusText.textContent = nextOpenMsg || 'Closed Now';
-    }
+    statusDot.classList.toggle('closed', !isOpen);
+    liveStatusText.textContent = isOpen ? 'Open Now' : (nextOpenMsg || 'Closed Now');
   };
 
   updateLiveHoursStatus();
-  // Refresh status check every 30 seconds
   setInterval(updateLiveHoursStatus, 30000);
 
-  // 10. SCROLL-TO-TOP BUTTON
+  // 11. SCROLL-TO-TOP BUTTON (OPTIMIZED)
   const scrollToTopBtn = document.getElementById('scrollToTop');
-
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 500) {
-      scrollToTopBtn.classList.add('visible');
-    } else {
-      scrollToTopBtn.classList.remove('visible');
+  
+  const updateScrollTopVisibility = throttle(() => {
+    if (scrollToTopBtn) {
+      scrollToTopBtn.classList.toggle('visible', window.scrollY > 500);
     }
-  });
+  }, 100);
 
-  scrollToTopBtn.addEventListener('click', () => {
+  window.addEventListener('scroll', updateScrollTopVisibility, { passive: true });
+
+  scrollToTopBtn?.addEventListener('click', () => {
     window.scrollTo({
       top: 0,
       behavior: 'smooth'
     });
   });
 
-  // 11. COOKIE CONSENT BANNER INTERACTION
+  // 12. COOKIE CONSENT BANNER
   const cookieConsent = document.getElementById('cookieConsent');
   const cookieAcceptBtn = document.getElementById('cookieAcceptBtn');
   const cookieManageBtn = document.getElementById('cookieManageBtn');
 
-  // Verify accepted flag in localStorage
   const cookiesAccepted = localStorage.getItem('cookies-accepted');
-  if (!cookiesAccepted) {
-    // Show banner after 100ms delay
+  if (!cookiesAccepted && cookieConsent) {
     setTimeout(() => {
       cookieConsent.classList.add('visible');
       cookieConsent.setAttribute('aria-hidden', 'false');
@@ -544,18 +554,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const dismissCookieConsent = () => {
-    cookieConsent.classList.remove('visible');
-    cookieConsent.setAttribute('aria-hidden', 'true');
-    localStorage.setItem('cookies-accepted', 'true');
+    if (cookieConsent) {
+      cookieConsent.classList.remove('visible');
+      cookieConsent.setAttribute('aria-hidden', 'true');
+      localStorage.setItem('cookies-accepted', 'true');
+    }
   };
 
-  if (cookieAcceptBtn) {
-    cookieAcceptBtn.addEventListener('click', dismissCookieConsent);
-  }
-
-  if (cookieManageBtn) {
-    cookieManageBtn.addEventListener('click', dismissCookieConsent); // Accept all in simple mock mode
-  }
+  cookieAcceptBtn?.addEventListener('click', dismissCookieConsent);
+  cookieManageBtn?.addEventListener('click', dismissCookieConsent);
 
 });
-
